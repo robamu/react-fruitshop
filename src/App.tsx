@@ -1,3 +1,4 @@
+import { ChangeEvent, ChangeEventHandler, useState } from "react";
 import "./App.css";
 
 interface ProductInfo {
@@ -25,47 +26,96 @@ export default function App() {
 }
 
 function FilterableProductTable({ products }: Products) {
+  const [showOnlyInStock, setShowOnlyInStock] = useState(false);
+  const [currentSearchString, setCurrentSearchString] = useState("");
+
   return (
     <>
-      <SearchBar />
-      <ProductTable products={products} />
+      <SearchBar
+        checkBoxClickedCb={setShowOnlyInStock}
+        searchBarInputCb={setCurrentSearchString}
+      />
+      <ProductTable
+        products={products}
+        showOnlyInStock={showOnlyInStock}
+        searchString={currentSearchString}
+      />
     </>
   );
 }
 
-function SearchBar() {
+interface SearchBarArgs {
+  checkBoxClickedCb: (checked: boolean) => void;
+  searchBarInputCb: (string: string) => void;
+}
+
+function SearchBar({ checkBoxClickedCb, searchBarInputCb }: SearchBarArgs) {
   return (
-    <>
-      <form id="form">
-        <input type="search" id="query" placeholder="Search..." />
-        <label>
-          <input type="checkbox" /> Only show products in stock
-        </label>
-      </form>
-    </>
+    <form>
+      <input
+        type="text"
+        placeholder="Search..."
+        onChange={(e) => searchBarInputCb(e.target.value)}
+      />
+      <label>
+        <input
+          type="checkbox"
+          onChange={(e) => checkBoxClickedCb(e.target.checked)}
+        />{" "}
+        Only show products in stock
+      </label>
+    </form>
   );
+}
+
+interface ProductsWithFilters extends Products {
+  showOnlyInStock: boolean;
+  searchString: string;
 }
 
 interface ProductElement {
-  element: JSX.Element;
+  name: string;
   stocked: boolean;
+  element: JSX.Element;
 }
 
-function ProductTable({ products }: Products) {
+function ProductTable({
+  products,
+  showOnlyInStock,
+  searchString,
+}: ProductsWithFilters) {
   let productMap: { [category: string]: ProductElement[] } = {};
   products.forEach((value) => {
     if (!productMap.hasOwnProperty(value.category)) {
       productMap[value.category] = [];
     }
     productMap[value.category].push({
-      element: <ProductRow product={value} />,
+      name: value.name,
       stocked: value.stocked,
+      element: <ProductRow product={value} />,
     });
   });
+
   let table_body: JSX.Element[] = [];
-  Object.entries(productMap).forEach(([key, productEntries], _) => {
-    table_body.push(<ProductCategoryRow category={key} />);
-    productEntries.forEach(({ element }) => {
+  Object.entries(productMap).forEach(([category, productEntries], _) => {
+    table_body.push(<ProductCategoryRow category={category} />);
+    productEntries.forEach(({ name, stocked, element }) => {
+      if (showOnlyInStock && !stocked) {
+        return;
+      }
+      if (searchString !== "") {
+        // Filter conditions. If those are not met, the entry will not be added to the table.
+        if (
+          !(
+            category
+              .toLocaleLowerCase()
+              .includes(searchString.toLocaleLowerCase()) ||
+            name.toLocaleLowerCase().includes(searchString.toLocaleLowerCase())
+          )
+        ) {
+          return;
+        }
+      }
       table_body.push(element);
     });
   });
